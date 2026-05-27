@@ -1,7 +1,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 1: Build Go server binary
 # ──────────────────────────────────────────────────────────────────────────────
-FROM golang:1.25-bullseye AS gobuilder
+FROM golang:1.25-bookworm AS gobuilder
 
 WORKDIR /src
 
@@ -35,7 +35,7 @@ RUN cd /src/server && \
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 2: Build webapp
 # ──────────────────────────────────────────────────────────────────────────────
-FROM node:24-bullseye-slim AS webbuilder
+FROM node:24-bookworm-slim AS webbuilder
 
 WORKDIR /src
 
@@ -56,7 +56,7 @@ RUN cd /src/webapp && npm run build
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 3: Download plugins
 # ──────────────────────────────────────────────────────────────────────────────
-FROM debian:bullseye-slim AS pluginbuilder
+FROM debian:bookworm-slim AS pluginbuilder
 
 RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates && rm -rf /var/lib/apt/lists/*
 
