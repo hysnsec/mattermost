@@ -26,12 +26,7 @@ const Header = ({alternateLink, backButtonURL, onBackButtonClick}: HeaderProps) 
 
     const ariaLabel = SiteName || 'Mattermost';
 
-    let freeBanner = null;
-    if (license.IsLicensed === 'false') {
-        freeBanner = <><Logo/><span className='freeBadge'>{'TEAM EDITION'}</span></>;
-    } else if (license.SkuShortName === LicenseSkus.Entry) {
-        freeBanner = <><Logo/><span className='freeBadge'>{'ENTRY EDITION'}</span></>;
-    }
+    const freeBanner = null;
 
     let title: React.ReactNode = SiteName;
     if (title === 'Mattermost') {
