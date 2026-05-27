@@ -30,7 +30,7 @@ MM_EMAILSETTINGS_ENABLESIGNINWITHUSERNAME=false
 
 # Allowed email domains for Google SSO (comma-separated)
 MM_TEAMSETTINGS_RESTRICTCREATIONTODOMAINS=designshifu.com,practical-devsecops.com
-MM_PLUGINSETTINGS_PLUGINSTATES={"com.github.matterpoll.matterpoll":{"Enable":true},"com.mattermost.plugin-todo":{"Enable":true},"com.github.scottleedavis.mattermost-plugin-remind":{"Enable":true},"com.mattermost.focalboard":{"Enable":true},"com.github.standup-raven.standup-raven":{"Enable":true},"github":{"Enable":true},"com.mattermost.calls":{"Enable":true},"mattermost-ai":{"Enable":true}}
+
 # Google OAuth — fill in from Google Cloud Console
 MM_GOOGLESETTINGS_ENABLE=true
 MM_GOOGLESETTINGS_ID=your-google-client-id
@@ -43,6 +43,9 @@ MM_GOOGLESETTINGS_TOKENENDPOINT=https://accounts.google.com/o/oauth2/token
 
 # Plugin uploads
 MM_PLUGINSETTINGS_ENABLEUPLOADS=true
+
+# Pre-enable plugins seeded into filestore on first boot
+MM_PLUGINSETTINGS_PLUGINSTATES={"com.github.matterpoll.matterpoll":{"Enable":true},"com.mattermost.plugin-todo":{"Enable":true},"com.github.scottleedavis.mattermost-plugin-remind":{"Enable":true},"com.mattermost.focalboard":{"Enable":true},"com.github.standup-raven.standup-raven":{"Enable":true},"github":{"Enable":true},"com.mattermost.calls":{"Enable":true},"mattermost-ai":{"Enable":true}}
 
 # Scheduled posts
 MM_SERVICESETTINGS_SCHEDULEDPOSTS=true

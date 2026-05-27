@@ -1,7 +1,7 @@
 # Mattermost Custom Build — Google SSO Without Enterprise Licence
 
 > Base tag: `v11.7.2`
-> Final image: `mattermost-custom:11.7.2-google-sso`
+> Final image: `registry.digitalocean.com/designshifu/mattermost:11.7.2`
 
 ---
 
@@ -266,9 +266,30 @@ The About modal showed "Team Edition" when the binary was built without `BuildEn
 
 ---
 
+### 1.8 Remove "Team Edition" Badge from Login / Signup Page
+
+The header on the `/login` and `/signup` pages showed a "TEAM EDITION" badge when no licence was present. Fixed by setting `freeBanner = null` unconditionally and removing the now-unused licence imports.
+
+**`webapp/channels/src/components/header_footer_route/header.tsx`**
+
+```diff
+- import {getLicense} from 'mattermost-redux/selectors/entities/general';
+- import {LicenseSkus} from 'utils/constants';
+  import {getConfig} from 'mattermost-redux/selectors/entities/general';
+  ...
+- const license = useSelector(getLicense);
+  const {SiteName} = useSelector(getConfig);
+- const freeBanner = license.IsLicensed === 'false' || license.SkuShortName === LicenseSkus.Entry
+-   ? <TeamEditionLeftNav/>
+-   : null;
++ const freeBanner = null;
+```
+
+---
+
 ## Step 2 — Dockerfile (Multi-Stage)
 
-The Dockerfile handles all compilation internally — no local Go or Node toolchain required. Just run `docker compose`.
+The Dockerfile handles all compilation internally — no local Go or Node toolchain required.
 
 **`compose/production/mattermost/Dockerfile`**
 
@@ -276,13 +297,15 @@ The Dockerfile handles all compilation internally — no local Go or Node toolch
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 1: Build Go server binary
 # ──────────────────────────────────────────────────────────────────────────────
-FROM golang:1.25-bullseye AS gobuilder
+FROM golang:1.25-bookworm AS gobuilder
 
 WORKDIR /src
 
+# Copy only what Go needs first (better layer caching)
 COPY server/go.mod server/go.sum ./server/
 COPY server/public/go.mod server/public/go.sum ./server/public/
 
+# Set up Go workspace (server/public is a separate Go module)
 RUN cd /src/server && \
     go work init && \
     go work use . && \
@@ -305,90 +328,126 @@ RUN cd /src/server && \
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 2: Build webapp
 # ──────────────────────────────────────────────────────────────────────────────
-FROM node:24-bullseye-slim AS webbuilder
+FROM node:24-bookworm-slim AS webbuilder
 
 WORKDIR /src
 
-COPY webapp/package.json webapp/package-lock.json ./webapp/
-COPY webapp/channels/package.json ./webapp/channels/
-
-RUN cd /src/webapp && npm ci --include=dev
-
+# Copy full webapp source — postinstall script needs platform/ workspaces present
 COPY webapp/ ./webapp/
 
-RUN cd /src/webapp && npm run build
+# Increase npm timeouts to handle slow network during build
+RUN npm config set fetch-timeout 600000 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000
+
+RUN cd /src/webapp && npm ci --include=dev && npm run build
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Stage 3: Final image — replace binary + webapp in official image
+# Stage 3: Download plugins into filestore layout
+# ──────────────────────────────────────────────────────────────────────────────
+FROM debian:bookworm-slim AS pluginbuilder
+
+RUN apt-get update && apt-get install -y --no-install-recommends wget ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Store as .tar.gz — Mattermost SyncPlugins reads from filestore and installs to /mattermost/plugins/
+WORKDIR /data/plugins
+
+RUN \
+  wget -q https://github.com/matterpoll/matterpoll/releases/download/v1.8.0/com.github.matterpoll.matterpoll-1.8.0.tar.gz \
+    -O com.github.matterpoll.matterpoll.tar.gz && \
+  wget -q https://github.com/mattermost-community/mattermost-plugin-todo/releases/download/v0.7.1/com.mattermost.plugin-todo-0.7.1.tar.gz \
+    -O com.mattermost.plugin-todo.tar.gz && \
+  wget -q https://github.com/scottleedavis/mattermost-plugin-remind/releases/download/v1.0.0/com.github.scottleedavis.mattermost-plugin-remind-1.0.0.tar.gz \
+    -O com.github.scottleedavis.mattermost-plugin-remind.tar.gz && \
+  wget -q https://github.com/mattermost-community/focalboard/releases/download/v8.0.0/mattermost-plugin-focalboard.tar.gz \
+    -O com.mattermost.focalboard.tar.gz && \
+  wget -q https://github.com/standup-raven/standup-raven/releases/download/v3.3.2/mattermost-plugin-standup-raven-v3.3.2-linux-amd64.tar.gz \
+    -O com.github.standup-raven.standup-raven.tar.gz
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Stage 4: Final image — replace binary + webapp + seed filestore plugins
 # ──────────────────────────────────────────────────────────────────────────────
 FROM mattermost/mattermost-enterprise-edition:11.7.2
 
 USER mattermost
 WORKDIR /mattermost
 
+# Replace server binary (Google SSO unlocked, enterprise ready)
 COPY --from=gobuilder  --chown=2000:2000 /out/mattermost /mattermost/bin/mattermost
+
+# Replace webapp (licence gates removed)
 COPY --from=webbuilder --chown=2000:2000 /src/webapp/channels/dist/. /mattermost/client/
+
+# Seed plugin .tar.gz files into filestore — SyncPlugins reads from here on first boot
+COPY --from=pluginbuilder --chown=2000:2000 /data/plugins/. /mattermost/data/plugins/
 ```
 
-> All runtime deps, i18n, fonts, templates, config and plugins are inherited from the official enterprise image. Only the server binary and webapp are replaced.
+> All runtime deps, i18n, fonts, templates, and config are inherited from the official enterprise image. Only the server binary, webapp, and plugin filestore seed are replaced.
+>
+> **Plugin seeding note:** Plugins are copied to `/mattermost/data/plugins/` (the filestore), not `/mattermost/plugins/` (the runtime dir). Mattermost's `SyncPlugins` reads from the filestore and installs to the runtime dir on startup. This only takes effect on first boot when the `production_mattermost_data` volume is new.
 
 ---
 
-## Step 3 — Build & Run
+## Step 3 — Build Locally & Push to Registry
+
+Build must be done on the local machine (Apple Silicon) targeting `linux/amd64`. Do **not** build on the server.
 
 ```bash
-cd /path/to/mattermost
+# Build image (cross-compile for linux/amd64)
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker build \
+  -f compose/production/mattermost/Dockerfile \
+  -t registry.digitalocean.com/designshifu/mattermost:11.7.2 \
+  .
 
-# Build and start all services (traefik + postgres + mattermost)
-docker compose -f production.yml up --build -d
-
-# Build only the mattermost image (cross-compile for linux/amd64 on Apple Silicon)
-DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose -f production.yml build mattermost
+# Push to DigitalOcean Container Registry
+doctl registry login
+docker push registry.digitalocean.com/designshifu/mattermost:11.7.2
 ```
 
-First build takes ~20–30 min (Go + npm). Subsequent builds are fast due to layer caching on `go.mod` / `package.json` files.
+First build takes ~20–30 min (Go compile + npm build). Subsequent builds are fast due to layer caching.
 
 ---
 
 ## Step 4 — Verify the Image
 
-### Check version
-```bash
-docker run --rm \
-  --entrypoint /mattermost/bin/mattermost \
-  mattermost-custom:11.7.2-google-sso version
-# → Version: 11.7.2
-```
-
 ### Check Google provider is compiled in
 ```bash
-strings server/bin/mattermost | grep oauthgoogle
-# → *oauthgoogle.GoogleUser
-# → *oauthgoogle.googleName
-# → *oauthgoogle.googleEmail
+docker run --rm registry.digitalocean.com/designshifu/mattermost:11.7.2 \
+  grep -c oauthgoogle /mattermost/bin/mattermost || true
 ```
 
-### Check running container API
+### Check plugin files are seeded in filestore
 ```bash
-# Get container private IP
-IP=$(docker inspect mattermost \
-  --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
-
-# Hit client config endpoint
-curl -s "http://$IP:8065/api/v4/config/client?format=old" \
-  | python3 -m json.tool | grep -i google
-
-# Expected output:
-# "EnableSignUpWithGoogle": "true",
+docker run --rm registry.digitalocean.com/designshifu/mattermost:11.7.2 \
+  sh -c 'echo /mattermost/data/plugins/*.tar.gz'
+# → com.github.matterpoll.matterpoll.tar.gz  com.mattermost.plugin-todo.tar.gz  ...
 ```
 
----
-
-## Step 5 — Push to Registry
-
+### Smoke test with local postgres
 ```bash
-docker push mattermost-custom:11.7.2-google-sso
+docker network create mm-test
+
+docker run -d --name mm-postgres --network mm-test \
+  -e POSTGRES_USER=mattermost -e POSTGRES_PASSWORD=changeme -e POSTGRES_DB=mattermost \
+  postgres:16
+
+sleep 5
+
+docker run -d --name mm-test --network mm-test -p 8065:8065 \
+  -e MM_SQLSETTINGS_DRIVERNAME=postgres \
+  -e MM_SQLSETTINGS_DATASOURCE="postgres://mattermost:changeme@mm-postgres:5432/mattermost?sslmode=disable" \
+  -e MM_SERVICESETTINGS_SITEURL=http://localhost:8065 \
+  -e MM_PLUGINSETTINGS_ENABLEUPLOADS=true \
+  registry.digitalocean.com/designshifu/mattermost:11.7.2
+
+# Watch for "Installing extracted plugin" — not "Removing local installation"
+docker logs -f mm-test
+
+# Cleanup
+docker rm -f mm-test mm-postgres && docker network rm mm-test
 ```
 
 ---
@@ -419,8 +478,16 @@ docker push mattermost-custom:11.7.2-google-sso
 | `webapp/channels/src/components/admin_console/admin_definition.tsx` | Removed `isHidden` licence check |
 | `webapp/channels/src/components/global_header/.../product_menu.tsx` | Hardcoded `isFreeEdition = false` |
 | `webapp/channels/src/components/about_build_modal/about_build_modal.tsx` | Hardcoded enterprise edition check to `true` |
-| `compose/production/mattermost/Dockerfile` | Multi-stage — builds Go + webapp internally, replaces in official image |
-| `production.yml` | Docker Compose for traefik + postgres + mattermost |
+| `webapp/channels/src/components/header_footer_route/header.tsx` | Removed "Team Edition" badge from login/signup page |
+| `compose/production/mattermost/Dockerfile` | 4-stage build — Go binary, webapp, plugin filestore seed, final image |
+| `compose/production/traefik/Dockerfile` | Custom Traefik image with `envsubst` support |
+| `compose/production/traefik/traefik.tmpl` | Traefik config template with `${TRAEFIK_DOMAIN}` placeholders |
+| `compose/production/traefik/entrypoint.sh` | Runs `envsubst` to expand env vars before starting Traefik |
+| `production.yml` | Docker Compose — traefik + postgres + mattermost + awscli backup |
+| `.envs/.production/.mattermost.example` | Mattermost env template (Google SSO, plugin states, SMTP) |
+| `.envs/.production/.postgres.example` | Postgres env template |
+| `.envs/.production/.traefik.example` | Traefik env template (domain + ACME email) |
+| `.envs/.production/.aws.example` | AWS/Spaces env template (for postgres backups) |
 
 ---
 

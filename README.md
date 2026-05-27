@@ -1,125 +1,134 @@
 # Mattermost Custom Build — Google SSO
 
-Custom build based on `v11.7.2` with Google SSO unlocked (no enterprise licence required) and production Docker Compose setup with Traefik, PostgreSQL 18, and AWS/Spaces backup.
+Custom build of Mattermost `v11.7.2` with Google SSO unlocked (no enterprise licence required), production Docker Compose stack with Traefik, PostgreSQL, and DigitalOcean Spaces backup.
 
-See [GOOGLE_SSO_CHANGES.md](./GOOGLE_SSO_CHANGES.md) for full details of all code changes.
+See [GOOGLE_SSO_CHANGES.md](./GOOGLE_SSO_CHANGES.md) for full details of all source code changes.
 
-## Quick Start
+---
+
+## Prerequisites
+
+- Docker + Docker Compose (on build machine and server)
+- DigitalOcean Container Registry access: `registry.digitalocean.com/designshifu`
+- A server with Docker installed (tested on Ubuntu 22.04)
+
+---
+
+## Build Image Locally
+
+The image must be built on your local machine (Apple Silicon) targeting `linux/amd64`, then pushed to the registry. Do **not** build on the server.
 
 ```bash
-# 1. Copy env templates and fill in your values
+# Cross-compile for linux/amd64 (required on Apple Silicon)
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker build \
+  -f compose/production/mattermost/Dockerfile \
+  -t registry.digitalocean.com/designshifu/mattermost:11.7.2 \
+  .
+```
+
+Build takes ~20–30 min on first run (Go compile + npm build). Subsequent builds are fast due to layer caching.
+
+### Push to Registry
+
+```bash
+# Authenticate (if not already logged in)
+doctl registry login
+
+# Push
+docker push registry.digitalocean.com/designshifu/mattermost:11.7.2
+```
+
+---
+
+## Server Deployment
+
+### First-time Setup
+
+```bash
+# 1. SSH into server
+ssh root@your-server-ip
+
+# 2. Clone the repo
+git clone https://github.com/designshifu/mattermost.git /home/deploy/mattermost
+cd /home/deploy/mattermost
+
+# 3. Copy env templates and fill in real values
 cp .envs/.production/.mattermost.example .envs/.production/.mattermost
 cp .envs/.production/.postgres.example   .envs/.production/.postgres
 cp .envs/.production/.traefik.example    .envs/.production/.traefik
 cp .envs/.production/.aws.example        .envs/.production/.aws
 
-# 2. Build and start
-DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose -f production.yml up --build -d
+# Edit each file and replace placeholder values
+nano .envs/.production/.mattermost   # set SITEURL, Google OAuth credentials, DB password
+nano .envs/.production/.postgres     # set POSTGRES_PASSWORD (must match .mattermost datasource)
+nano .envs/.production/.traefik      # set TRAEFIK_DOMAIN and TRAEFIK_ACME_EMAIL
+nano .envs/.production/.aws          # set Spaces credentials and bucket names (for backups)
+
+# 4. Authenticate to DO registry
+doctl registry login
+
+# 5. Pull image and start all services
+docker compose -f production.yml pull
+docker compose -f production.yml up -d
 ```
+
+### Update Deployment (after new image push)
+
+```bash
+cd /home/deploy/mattermost
+git pull
+docker compose -f production.yml pull mattermost
+docker compose -f production.yml up -d --no-deps mattermost
+```
+
+### View Logs
+
+```bash
+docker compose -f production.yml logs -f mattermost
+docker compose -f production.yml logs -f traefik
+```
+
+---
 
 ## Backup
 
+### Postgres backup to local disk
+
 ```bash
 docker compose -f production.yml run --rm postgres backup
+```
+
+### Upload backup to DigitalOcean Spaces
+
+```bash
 docker compose -f production.yml run --rm awscli upload
 ```
 
 ---
 
-# [![Mattermost logo](https://user-images.githubusercontent.com/7205829/137170381-fe86eef0-bccc-4fdd-8e92-b258884ebdd7.png)](https://mattermost.com)
+## Services
 
-[Mattermost](https://mattermost.com) is an open core, self-hosted collaboration platform that offers chat, workflow automation, voice calling, screen sharing, and AI integration. This repo is the primary source for core development on the Mattermost platform; it's written in Go and React, runs as a single Linux binary, and relies on PostgreSQL. A new compiled version is released under an MIT license every month on the 16th.
+| Service | Description |
+|---|---|
+| `mattermost` | Custom Mattermost build — pulled from `registry.digitalocean.com/designshifu/mattermost:11.7.2` |
+| `postgres` | PostgreSQL database |
+| `traefik` | Reverse proxy with automatic Let's Encrypt TLS |
+| `awscli` | Postgres backup uploader to DigitalOcean Spaces |
 
-[Deploy Mattermost on-premises](https://mattermost.com/deploy/?utm_source=github-mattermost-server-readme), or [try it for free in the cloud](https://mattermost.com/sign-up/?utm_source=github-mattermost-server-readme).
+---
 
-<img width="1006" alt="mattermost user interface" src="https://user-images.githubusercontent.com/7205829/136107976-7a894c9e-290a-490d-8501-e5fdbfc3785a.png">
+## Plugins (Pre-loaded)
 
-Learn more about the following use cases with Mattermost:
+The following plugins are seeded into the filestore on first boot and auto-enabled:
 
-- [DevSecOps](https://mattermost.com/solutions/use-cases/devops/?utm_source=github-mattermost-server-readme)
-- [Incident Resolution](https://mattermost.com/solutions/use-cases/incident-resolution/?utm_source=github-mattermost-server-readme)
-- [IT Service Desk](https://mattermost.com/solutions/use-cases/it-service-desk/?utm_source=github-mattermost-server-readme)
+| Plugin | Version |
+|---|---|
+| Matterpoll | 1.8.0 |
+| Todo | 0.7.1 |
+| Remind | 1.0.0 |
+| Boards (Focalboard) | 8.0.0 |
+| Standup Raven | 3.3.2 |
 
-Other useful resources:
+The following prepackaged plugins (bundled in the enterprise image) are also enabled:
 
-- [Download and Install Mattermost](https://docs.mattermost.com/guides/deployment.html) - Install, setup, and configure your own Mattermost instance.
-- [Product documentation](https://docs.mattermost.com/) - Learn how to run a Mattermost instance and take advantage of all the features.
-- [Developer documentation](https://developers.mattermost.com/) - Contribute code to Mattermost or build an integration via APIs, Webhooks, slash commands, Apps, and plugins.
-
-Table of contents
-=================
-
-- [Install Mattermost](#install-mattermost)
-- [Native mobile and desktop apps](#native-mobile-and-desktop-apps)
-- [Get security bulletins](#get-security-bulletins)
-- [Get involved](#get-involved)
-- [Learn more](#learn-more)
-- [License](#license)
-- [Get the latest news](#get-the-latest-news)
-- [Contributing](#contributing)
-
-## Install Mattermost
-
-- [Download and Install Mattermost Self-Hosted](https://docs.mattermost.com/guides/deployment.html) - Deploy a Mattermost Self-hosted instance in minutes via Docker, Ubuntu, or tar.
-- [Get started in the cloud](https://mattermost.com/sign-up/?utm_source=github-mattermost-server-readme) to try Mattermost today.
-- [Developer machine setup](https://developers.mattermost.com/contribute/server/developer-setup) - Follow this guide if you want to write code for Mattermost.
-
-
-Other install guides:
-
-- [Deploy Mattermost on Docker](https://docs.mattermost.com/install/install-docker.html)
-- [Mattermost Omnibus](https://docs.mattermost.com/install/installing-mattermost-omnibus.html)
-- [Install Mattermost from Tar](https://docs.mattermost.com/install/install-tar.html)
-- [Ubuntu 20.04 LTS](https://docs.mattermost.com/install/installing-ubuntu-2004-LTS.html)
-- [Kubernetes](https://docs.mattermost.com/install/install-kubernetes.html)
-- [Helm](https://docs.mattermost.com/install/install-kubernetes.html#installing-the-operators-via-helm)
-- [Debian Buster](https://docs.mattermost.com/install/install-debian.html)
-- [RHEL 8](https://docs.mattermost.com/install/install-rhel-8.html)
-- [More server install guides](https://docs.mattermost.com/guides/deployment.html)
-
-## Native mobile and desktop apps
-
-In addition to the web interface, you can also download Mattermost clients for [Android](https://mattermost.com/pl/android-app/), [iOS](https://mattermost.com/pl/ios-app/), [Windows PC](https://docs.mattermost.com/install/desktop-app-install.html#windows-10-windows-8-1), [macOS](https://docs.mattermost.com/install/desktop-app-install.html#macos-10-9), and [Linux](https://docs.mattermost.com/install/desktop-app-install.html#linux).
-
-[<img src="https://user-images.githubusercontent.com/30978331/272826427-6200c98f-7319-42c3-86d4-0b33ae99e01a.png" alt="Get Mattermost on Google Play" height="50px"/>](https://mattermost.com/pl/android-app/)  [<img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Get Mattermost on the App Store" height="50px"/>](https://itunes.apple.com/us/app/mattermost/id1257222717?mt=8)  [![Get Mattermost on Windows PC](https://user-images.githubusercontent.com/33878967/33095357-39cab8d2-ceb8-11e7-89a6-67dccc571ca3.png)](https://docs.mattermost.com/install/desktop.html#windows-10-windows-8-1-windows-7)  [![Get Mattermost on Mac OSX](https://user-images.githubusercontent.com/33878967/33095355-39a36f2a-ceb8-11e7-9b33-73d4f6d5d6c1.png)](https://docs.mattermost.com/install/desktop.html#macos-10-9)  [![Get Mattermost on Linux](https://user-images.githubusercontent.com/33878967/33095354-3990e256-ceb8-11e7-965d-b00a16e578de.png)](https://docs.mattermost.com/install/desktop.html#linux)
-
-## Get security bulletins
-
-Receive notifications of critical security updates. The sophistication of online attackers is perpetually increasing. If you're deploying Mattermost it's highly recommended you subscribe to the Mattermost Security Bulletin mailing list for updates on critical security releases.
-
-[Subscribe here](https://mattermost.com/security-updates/#sign-up)
-
-## Get involved
-
-- [Contribute to Mattermost](https://handbook.mattermost.com/contributors/contributors/ways-to-contribute)
-- [Find "Help Wanted" projects](https://github.com/mattermost/mattermost-server/issues?page=1&q=is%3Aissue+is%3Aopen+%22Help+Wanted%22&utf8=%E2%9C%93)
-- [Join Developer Discussion on a Mattermost server for contributors](https://community.mattermost.com/signup_user_complete/?id=f1924a8db44ff3bb41c96424cdc20676)
-- [Get Help With Mattermost](https://docs.mattermost.com/guides/get-help.html)
-
-## Learn more
-
-- [API options - webhooks, slash commands, drivers, and web service](https://api.mattermost.com/)
-- [See who's using Mattermost](https://mattermost.com/customers/)
-- [Browse over 700 Mattermost integrations](https://mattermost.com/marketplace/)
-
-## License
-
-See the [LICENSE file](LICENSE.txt) for license rights and limitations.
-
-## Get the latest news
-
-- **X** - Follow [Mattermost on X, formerly Twitter](https://twitter.com/mattermost).
-- **Blog** - Get the latest updates from the [Mattermost blog](https://mattermost.com/blog/).
-- **Facebook** - Follow [Mattermost on Facebook](https://www.facebook.com/MattermostHQ).
-- **LinkedIn** - Follow [Mattermost on LinkedIn](https://www.linkedin.com/company/mattermost/).
-- **Email** - Subscribe to our [newsletter](https://mattermost.us11.list-manage.com/subscribe?u=6cdba22349ae374e188e7ab8e&id=2add1c8034) (1 or 2 per month).
-- **Mattermost** - Join the ~contributors channel on [the Mattermost Community Server](https://community.mattermost.com).
-- **IRC** - Join the #matterbridge channel on [Freenode](https://freenode.net/) (thanks to [matterircd](https://github.com/42wim/matterircd)).
-- **YouTube** -  Subscribe to [Mattermost](https://www.youtube.com/@MattermostHQ).
-
-## Contributing
-
-[![Small Image](https://img.shields.io/badge/Contribute%20with-Gitpod-908a85?logo=gitpod)](https://gitpod.io/#https://github.com/mattermost/mattermost)
-
-Please see [CONTRIBUTING.md](./CONTRIBUTING.md).
-[Join the Mattermost Contributors server](https://community.mattermost.com/signup_user_complete/?id=codoy5s743rq5mk18i7u5ksz7e) to join community discussions about contributions, development, and more.
+- GitHub, Calls, Agents (AI)
