@@ -6,13 +6,12 @@ import React from 'react';
 import {useSelector} from 'react-redux';
 import {Link} from 'react-router-dom';
 
-import {getConfig, getLicense} from 'mattermost-redux/selectors/entities/general';
+import {getConfig} from 'mattermost-redux/selectors/entities/general';
 
 import BackButton from 'components/common/back_button';
 import Logo from 'components/common/svg_images_components/logo_dark_blue_svg';
 
 import './header.scss';
-import {LicenseSkus} from 'utils/constants';
 
 export type HeaderProps = {
     alternateLink?: React.ReactElement;
@@ -22,7 +21,6 @@ export type HeaderProps = {
 
 const Header = ({alternateLink, backButtonURL, onBackButtonClick}: HeaderProps) => {
     const {SiteName} = useSelector(getConfig);
-    const license = useSelector(getLicense);
 
     const ariaLabel = SiteName || 'Mattermost';
 
