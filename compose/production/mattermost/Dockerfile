@@ -39,18 +39,11 @@ FROM node:24-bookworm-slim AS webbuilder
 
 WORKDIR /src
 
-# Copy package files first for better layer caching
-COPY webapp/package.json webapp/package-lock.json ./webapp/
-COPY webapp/channels/package.json ./webapp/channels/
-
-# Install dependencies
-RUN cd /src/webapp && npm ci --include=dev
-
-# Copy the rest of the webapp source
+# Copy full webapp source — postinstall script needs platform/ workspaces present
 COPY webapp/ ./webapp/
 
-# Production build
-RUN cd /src/webapp && npm run build
+# Install dependencies + production build
+RUN cd /src/webapp && npm ci --include=dev && npm run build
 
 
 # ──────────────────────────────────────────────────────────────────────────────
