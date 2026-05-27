@@ -1,0 +1,33 @@
+#!/bin/sh
+
+### Apply 90-day expiry lifecycle policy to the Mattermost files bucket
+###
+### Run once after creating the bucket:
+###     $ docker compose -f production.yml run --rm awscli set-lifecycle
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+working_dir="$(dirname ${0})"
+source "${working_dir}/_sourced/messages.sh"
+
+LIFECYCLE_JSON='{
+  "Rules": [
+    {
+      "ID": "expire-files-90-days",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "" },
+      "Expiration": { "Days": 90 }
+    }
+  ]
+}'
+
+message_info "Applying 90-day lifecycle policy to bucket: ${AWS_FILES_BUCKET_NAME}"
+
+aws s3api put-bucket-lifecycle-configuration \
+  --endpoint-url "${AWS_S3_ENDPOINT_URL}" \
+  --bucket "${AWS_FILES_BUCKET_NAME}" \
+  --lifecycle-configuration "${LIFECYCLE_JSON}"
+
+message_success "Lifecycle policy applied. Files older than 90 days will be automatically deleted."

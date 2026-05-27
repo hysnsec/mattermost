@@ -1,0 +1,55 @@
+# Mattermost
+
+# Database
+MM_SQLSETTINGS_DRIVERNAME=postgres
+MM_SQLSETTINGS_DATASOURCE=postgres://mattermost:changeme@postgres:5432/mattermost?sslmode=disable&connect_timeout=10
+
+# Site URL (required)
+MM_SERVICESETTINGS_SITEURL=https://your-domain.com
+
+# Bleve search index
+MM_BLEVESETTINGS_INDEXDIR=/mattermost/bleve-indexes
+
+# File storage — local disk
+MM_FILESETTINGS_DRIVERNAME=local
+MM_FILESETTINGS_DIRECTORY=/mattermost/data
+
+# File storage — DigitalOcean Spaces (S3-compatible) — uncomment to enable
+# MM_FILESETTINGS_DRIVERNAME=amazons3
+# MM_FILESETTINGS_AMAZONS3ACCESSKEYID=your-spaces-access-key
+# MM_FILESETTINGS_AMAZONS3SECRETACCESSKEY=your-spaces-secret-key
+# MM_FILESETTINGS_AMAZONS3BUCKET=your-files-bucket
+# MM_FILESETTINGS_AMAZONS3ENDPOINT=nyc3.digitaloceanspaces.com
+# MM_FILESETTINGS_AMAZONS3SSL=true
+# MM_FILESETTINGS_AMAZONS3REGION=us-east-1
+
+# Auth — Google SSO only, all email/password signin disabled
+MM_EMAILSETTINGS_ENABLESIGNUPWITHEMAIL=false
+MM_EMAILSETTINGS_ENABLESIGNINWITHEMAIL=false
+MM_EMAILSETTINGS_ENABLESIGNINWITHUSERNAME=false
+
+# Allowed email domains for Google SSO (comma-separated)
+MM_TEAMSETTINGS_RESTRICTCREATIONTODOMAINS=designshifu.com,practical-devsecops.com
+
+# Google OAuth — fill in from Google Cloud Console
+MM_GOOGLESETTINGS_ENABLE=true
+MM_GOOGLESETTINGS_ID=your-google-client-id
+MM_GOOGLESETTINGS_SECRET=your-google-client-secret
+MM_GOOGLESETTINGS_SCOPE=profile email
+MM_GOOGLESETTINGS_BUTTONTEXT=Sign in with Google
+MM_GOOGLESETTINGS_USERAPIENDPOINT=https://people.googleapis.com/v1/people/me?personFields=names,emailAddresses,photos
+MM_GOOGLESETTINGS_AUTHENDPOINT=https://accounts.google.com/o/oauth2/auth
+MM_GOOGLESETTINGS_TOKENENDPOINT=https://accounts.google.com/o/oauth2/token
+
+# Plugin uploads
+MM_PLUGINSETTINGS_ENABLEUPLOADS=true
+
+# Scheduled posts
+MM_SERVICESETTINGS_SCHEDULEDPOSTS=true
+
+# Email / SMTP (optional — for system notifications only, not for signin)
+MM_EMAILSETTINGS_SMTPSERVER=
+MM_EMAILSETTINGS_SMTPPORT=
+MM_EMAILSETTINGS_ENABLESMTPAUTH=
+MM_EMAILSETTINGS_SMTPUSERNAME=
+MM_EMAILSETTINGS_SMTPPASSWORD=

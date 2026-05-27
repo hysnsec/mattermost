@@ -169,3 +169,7 @@ docker-compose.override.yaml
 server/prev-report.xml
 server/prev-gotestsum.json
 server/shard-*.txt
+
+# Deployment secrets
+.envs/
+!.envs/**/*.example

@@ -114,7 +114,7 @@ const ProductMenu = (): JSX.Element => {
         );
     });
 
-    const isFreeEdition = license.IsLicensed === 'false' || license.SkuShortName === LicenseSkus.Entry;
+    const isFreeEdition = false;
 
     return (
         <div ref={menuRef}>

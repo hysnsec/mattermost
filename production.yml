@@ -1,0 +1,79 @@
+version: '3.9'
+
+x-logging: &default-logging
+  driver: 'json-file'
+  options:
+    max-size: '5g'
+    tag: '{{.Name}}'
+
+volumes:
+  production_postgres_data: {}
+  production_postgres_data_backups: {}
+  production_traefik: {}
+  production_mattermost_data: {}
+  production_mattermost_logs: {}
+  production_mattermost_bleve: {}
+
+services:
+
+  postgres:
+    build:
+      context: .
+      dockerfile: compose/production/postgres/Dockerfile
+    image: mattermost_production_postgres
+    volumes:
+      - production_postgres_data:/var/lib/postgresql/data
+      - production_postgres_data_backups:/backups
+    env_file:
+      - ./.envs/.production/.postgres
+    restart: unless-stopped
+    logging: *default-logging
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mattermost:
+    build:
+      context: .
+      dockerfile: compose/production/mattermost/Dockerfile
+    image: mattermost_production_mattermost
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - production_mattermost_data:/mattermost/data
+      - production_mattermost_logs:/mattermost/logs
+      - production_mattermost_bleve:/mattermost/bleve-indexes
+    env_file:
+      - ./.envs/.production/.mattermost
+    restart: unless-stopped
+    logging: *default-logging
+
+  awscli:
+    build:
+      context: .
+      dockerfile: compose/production/aws/Dockerfile
+    image: mattermost_production_awscli
+    env_file:
+      - ./.envs/.production/.aws
+    volumes:
+      - production_postgres_data_backups:/backups
+
+  traefik:
+    build:
+      context: .
+      dockerfile: compose/production/traefik/Dockerfile
+    image: mattermost_production_traefik
+    depends_on:
+      - mattermost
+    env_file:
+      - ./.envs/.production/.traefik
+    volumes:
+      - production_traefik:/etc/traefik/acme
+    ports:
+      - '0.0.0.0:80:80'
+      - '0.0.0.0:443:443'
+    restart: unless-stopped
+    logging: *default-logging

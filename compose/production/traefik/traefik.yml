@@ -1,0 +1,43 @@
+log:
+  level: INFO
+
+entryPoints:
+  web:
+    address: ':80'
+    http:
+      redirections:
+        entryPoint:
+          to: web-secure
+          scheme: https
+
+  web-secure:
+    address: ':443'
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: '${TRAEFIK_ACME_EMAIL}'
+      storage: /etc/traefik/acme/acme.json
+      httpChallenge:
+        entryPoint: web
+
+http:
+  routers:
+    mattermost:
+      rule: 'Host(`${TRAEFIK_DOMAIN}`)'
+      entryPoints:
+        - web-secure
+      service: mattermost
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    mattermost:
+      loadBalancer:
+        servers:
+          - url: http://mattermost:8065
+
+providers:
+  file:
+    filename: /etc/traefik/traefik.yml
+    watch: true

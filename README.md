@@ -1,3 +1,31 @@
+# Mattermost Custom Build — Google SSO
+
+Custom build based on `v11.7.2` with Google SSO unlocked (no enterprise licence required) and production Docker Compose setup with Traefik, PostgreSQL 18, and AWS/Spaces backup.
+
+See [GOOGLE_SSO_CHANGES.md](./GOOGLE_SSO_CHANGES.md) for full details of all code changes.
+
+## Quick Start
+
+```bash
+# 1. Copy env templates and fill in your values
+cp .envs/.production/.mattermost.example .envs/.production/.mattermost
+cp .envs/.production/.postgres.example   .envs/.production/.postgres
+cp .envs/.production/.traefik.example    .envs/.production/.traefik
+cp .envs/.production/.aws.example        .envs/.production/.aws
+
+# 2. Build and start
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose -f production.yml up --build -d
+```
+
+## Backup
+
+```bash
+docker compose -f production.yml run --rm postgres backup
+docker compose -f production.yml run --rm awscli upload
+```
+
+---
+
 # [![Mattermost logo](https://user-images.githubusercontent.com/7205829/137170381-fe86eef0-bccc-4fdd-8e92-b258884ebdd7.png)](https://mattermost.com)
 
 [Mattermost](https://mattermost.com) is an open core, self-hosted collaboration platform that offers chat, workflow automation, voice calling, screen sharing, and AI integration. This repo is the primary source for core development on the Mattermost platform; it's written in Go and React, runs as a single Linux binary, and relies on PostgreSQL. A new compiled version is released under an MIT license every month on the 16th.

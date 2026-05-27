@@ -114,7 +114,7 @@ export default function AboutBuildModal(props: Props) {
     );
 
     let licensee;
-    if (config.BuildEnterpriseReady === 'true') {
+    if (true) {
         title = (
             <FormattedMessage
                 id='about.teamEditiont1'
