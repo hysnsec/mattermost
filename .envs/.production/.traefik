@@ -1,0 +1,3 @@
+# Traefik / Let's Encrypt
+TRAEFIK_DOMAIN=your-domain.com
+TRAEFIK_ACME_EMAIL=your-email@example.com

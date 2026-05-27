@@ -1,0 +1,11 @@
+# DigitalOcean Spaces credentials (S3-compatible)
+
+AWS_ACCESS_KEY_ID=your-spaces-access-key
+AWS_SECRET_ACCESS_KEY=your-spaces-secret-key
+AWS_S3_ENDPOINT_URL=https://nyc3.digitaloceanspaces.com
+
+# Bucket for postgres backups
+AWS_STORAGE_BUCKET_NAME=your-backup-bucket
+
+# Bucket for Mattermost file uploads (can be same or separate bucket)
+AWS_FILES_BUCKET_NAME=your-files-bucket

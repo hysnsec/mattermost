@@ -13,7 +13,6 @@ volumes:
   production_mattermost_data: {}
   production_mattermost_logs: {}
   production_mattermost_bleve: {}
-  production_mattermost_plugins: {}
 
 services:
 
@@ -44,7 +43,6 @@ services:
       - production_mattermost_data:/mattermost/data
       - production_mattermost_logs:/mattermost/logs
       - production_mattermost_bleve:/mattermost/bleve-indexes
-      - production_mattermost_plugins:/mattermost/plugins
     env_file:
       - ./.envs/.production/.mattermost
     restart: unless-stopped
