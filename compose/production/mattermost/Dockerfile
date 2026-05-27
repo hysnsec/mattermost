@@ -43,6 +43,7 @@ WORKDIR /src
 COPY webapp/ ./webapp/
 
 # Install dependencies + production build
+RUN npm config set fetch-timeout 600000 && npm config set fetch-retry-mintimeout 20000 && npm config set fetch-retry-maxtimeout 120000
 RUN cd /src/webapp && npm ci --include=dev && npm run build
 
 
