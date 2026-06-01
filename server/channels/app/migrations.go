@@ -29,6 +29,7 @@ const (
 	FirstAdminSetupCompleteKey                     = model.SystemFirstAdminSetupComplete
 	remainingSchemaMigrationsKey                   = "RemainingSchemaMigrations"
 	postPriorityConfigDefaultTrueMigrationKey      = "PostPriorityConfigDefaultTrueMigrationComplete"
+	RestrictTeamCreationToAdminsMigrationKey       = "RestrictTeamCreationToAdminsMigrationComplete"
 	contentFlaggingSetupDoneKey                    = "content_flagging_setup_done"
 	contentFlaggingMigrationVersion                = "v5"
 	managedCategorySetupDoneKey                    = "managed_category_setup_done"
@@ -181,6 +182,43 @@ func (s *Server) doEmojisPermissionsMigration() error {
 
 	if err := s.Store().System().SaveOrUpdate(&system); err != nil {
 		return fmt.Errorf("failed to mark emojis permissions migration as completed: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Server) doRestrictTeamCreationToAdminsMigration() error {
+	var nfErr *store.ErrNotFound
+	if _, err := s.Store().System().GetByName(RestrictTeamCreationToAdminsMigrationKey); err == nil {
+		return nil
+	} else if !errors.As(err, &nfErr) {
+		return fmt.Errorf("could not query migration: %w", err)
+	}
+
+	mlog.Info("Removing create_team permission from system_user role.")
+	role, err := s.GetRoleByName(context.Background(), model.SystemUserRoleId)
+	if err != nil {
+		return fmt.Errorf("failed to get system_user role: %w", err)
+	}
+
+	newPerms := []string{}
+	for _, p := range role.Permissions {
+		if p != model.PermissionCreateTeam.Id {
+			newPerms = append(newPerms, p)
+		}
+	}
+	role.Permissions = newPerms
+
+	if _, nErr := s.Store().Role().Save(role); nErr != nil {
+		return fmt.Errorf("failed to save system_user role: %w", nErr)
+	}
+
+	system := model.System{
+		Name:  RestrictTeamCreationToAdminsMigrationKey,
+		Value: "true",
+	}
+	if err := s.Store().System().SaveOrUpdate(&system); err != nil {
+		return fmt.Errorf("failed to mark migration as completed: %w", err)
 	}
 
 	return nil
@@ -1009,6 +1047,7 @@ func (s *Server) doAppMigrations() {
 		{"Post Priority Config Default True Migration", s.doPostPriorityConfigDefaultTrueMigration},
 		{"Content Flagging Properties Setup", s.doSetupContentFlaggingProperties},
 		{"Managed Category Properties Setup", s.doSetupManagedCategoryProperties},
+		{"Restrict Team Creation To Admins Migration", s.doRestrictTeamCreationToAdminsMigration},
 	}
 
 	for i := range m1 {

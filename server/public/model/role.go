@@ -1105,7 +1105,6 @@ func MakeDefaultRoles() map[string]*Role {
 			PermissionCreateDirectChannel.Id,
 			PermissionCreateGroupChannel.Id,
 			PermissionViewMembers.Id,
-			PermissionCreateTeam.Id,
 			PermissionCreateCustomGroup.Id,
 			PermissionEditCustomGroup.Id,
 			PermissionDeleteCustomGroup.Id,
