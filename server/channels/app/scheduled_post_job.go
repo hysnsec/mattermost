@@ -29,10 +29,6 @@ func (a *App) ProcessScheduledPosts(rctx request.CTX) {
 		return
 	}
 
-	if a.License() == nil {
-		return
-	}
-
 	beforeTime := model.GetMillis()
 	afterTime := beforeTime - (24 * 60 * 60 * 1000) // subtracting 24 hours from beforeTime
 	lastScheduledPostId := ""

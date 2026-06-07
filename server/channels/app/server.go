@@ -81,7 +81,7 @@ import (
 )
 
 const (
-	scheduledPostJobInterval      = 5 * time.Minute
+	scheduledPostJobInterval      = 30 * time.Second
 	debugScheduledPostJobInterval = 2 * time.Second
 )
 

@@ -1,7 +1,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 1: Build Go server binary
 # ──────────────────────────────────────────────────────────────────────────────
-FROM golang:1.25-bookworm AS gobuilder
+FROM golang:1.26-bookworm AS gobuilder
 
 WORKDIR /src
 

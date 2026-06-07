@@ -13,6 +13,7 @@ import {openModal} from 'actions/views/modals';
 
 import CoreMenuOptions from 'components/advanced_text_editor/send_button/send_post_options/core_menu_options';
 import * as Menu from 'components/menu';
+import {dismissMenu} from 'components/menu';
 
 import {ModalIdentifiers} from 'utils/constants';
 
@@ -116,6 +117,19 @@ export function SendPostOptions({disabled, onSelect, channelId}: Props) {
                     <FormattedMessage
                         id='create_post_button.option.schedule_message.options.choose_custom_time'
                         defaultMessage='Choose a custom time'
+                    />
+                }
+            />
+
+            <Menu.Separator/>
+
+            <Menu.Item
+                onClick={dismissMenu}
+                key={'cancel'}
+                labels={
+                    <FormattedMessage
+                        id='create_post_button.option.schedule_message.options.cancel'
+                        defaultMessage='Cancel'
                     />
                 }
             />

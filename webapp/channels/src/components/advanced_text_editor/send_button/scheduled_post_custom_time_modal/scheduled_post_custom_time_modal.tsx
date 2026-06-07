@@ -85,6 +85,7 @@ export default function ScheduledPostCustomTimeModal({channelId, onExited, onCon
         <DateTimePickerModal
             className='scheduled_post_custom_time_modal'
             initialTime={selectedDateTime}
+            allowManualTimeEntry={true}
             header={
                 <FormattedMessage
                     id='schedule_post.custom_time_modal.title'
